@@ -4,8 +4,8 @@
     <body>
         <referenceContainer name="before.body.end">
             <block class="Magento\Framework\View\Element\Template"
-                   name="vendor.shipping.mode.toggle.hyva"
-                   template="Vendor_ShippingModeToggle::shipping-mode-toggle.phtml"/>
+                   name="citytech.shipping.mode.toggle.hyva"
+                   template="Citytech_ShippingModeToggle::shipping-mode-toggle.phtml"/>
         </referenceContainer>
     </body>
 </page>

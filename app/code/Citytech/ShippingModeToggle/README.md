@@ -1,4 +1,4 @@
-# Vendor_ShippingModeToggle (Magento 2.4 + Hyvä)
+# Citytech_ShippingModeToggle (Magento 2.4 + Hyvä)
 
 This module adds two buttons above the shipping methods section on checkout:
 
@@ -17,11 +17,11 @@ This module adds two buttons above the shipping methods section on checkout:
 ## Install
 
 1. Copy module to:
-   `app/code/Vendor/ShippingModeToggle`
+   `app/code/Citytech/ShippingModeToggle`
 2. Enable and deploy:
 
 ```bash
-bin/magento module:enable Vendor_ShippingModeToggle
+bin/magento module:enable Citytech_ShippingModeToggle
 bin/magento setup:upgrade
 bin/magento cache:flush
 ```
