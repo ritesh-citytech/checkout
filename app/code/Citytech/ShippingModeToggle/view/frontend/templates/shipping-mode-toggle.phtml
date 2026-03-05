@@ -1,0 +1,150 @@
+<?php
+/**
+ * Checkout shipping mode switcher for Hyvä.
+ *
+ * Adds two buttons above shipping methods:
+ * - Home Delivery
+ * - Pickup
+ *
+ * Behavior:
+ * - Pickup: show only pickup shipping methods and hide shipping address block.
+ * - Home Delivery: hide pickup shipping methods and show shipping address block.
+ */
+?>
+<script>
+    (() => {
+        if (!document.body.classList.contains('checkout-index-index')) {
+            return;
+        }
+
+        const PICKUP_KEYWORDS = ['pickup', 'pick up', 'pick-in-store', 'pick in store', 'collect', 'click & collect'];
+
+        const init = () => {
+            const shippingTitle = findShippingTitle();
+            if (!shippingTitle || document.getElementById('shipping-mode-toggle')) {
+                return;
+            }
+
+            const wrapper = document.createElement('div');
+            wrapper.id = 'shipping-mode-toggle';
+            wrapper.className = 'shipping-mode-toggle flex gap-2 mb-4';
+            wrapper.innerHTML = `
+                <button type="button" class="mode-btn mode-home active" data-mode="home">Home Delivery</button>
+                <button type="button" class="mode-btn mode-pickup" data-mode="pickup">Pickup</button>
+            `;
+
+            shippingTitle.parentNode.insertBefore(wrapper, shippingTitle.nextSibling);
+
+            wrapper.addEventListener('click', (event) => {
+                const btn = event.target.closest('button[data-mode]');
+                if (!btn) {
+                    return;
+                }
+
+                const mode = btn.getAttribute('data-mode');
+                setActiveMode(wrapper, mode);
+                applyMode(mode);
+            });
+
+            applyMode('home');
+        };
+
+        const findShippingTitle = () => {
+            const headings = Array.from(document.querySelectorAll('h1, h2, h3, legend, .step-title'));
+            return headings.find((heading) => /shipping methods?/i.test(heading.textContent || '')) || null;
+        };
+
+        const getAddressContainer = () => {
+            const candidates = [
+                '#shipping-new-address-form',
+                '#shipping',
+                '[data-role="shipping-address-form"]',
+                '.shipping-address',
+                '.checkout-shipping-address'
+            ];
+
+            for (const selector of candidates) {
+                const element = document.querySelector(selector);
+                if (element) {
+                    return element;
+                }
+            }
+
+            return null;
+        };
+
+        const getMethodRows = () => {
+            const rows = [];
+            const radios = document.querySelectorAll('input[type="radio"][name*="shipping"], input[type="radio"][value*="_"]');
+
+            radios.forEach((radio) => {
+                const label = document.querySelector(`label[for="${radio.id}"]`);
+                const row = radio.closest('tr, li, .field, .method, .shipping-method-item, .col') || label?.closest('tr, li, .field, .method, .shipping-method-item, .col');
+                if (!row) {
+                    return;
+                }
+
+                const text = `${radio.value} ${(label ? label.textContent : '')} ${row.textContent}`.toLowerCase();
+                const isPickup = PICKUP_KEYWORDS.some((keyword) => text.includes(keyword));
+
+                rows.push({radio, row, isPickup});
+            });
+
+            return rows;
+        };
+
+        const applyMode = (mode) => {
+            const addressContainer = getAddressContainer();
+            const methodRows = getMethodRows();
+
+            methodRows.forEach(({row, radio, isPickup}) => {
+                const shouldShow = mode === 'pickup' ? isPickup : !isPickup;
+                row.style.display = shouldShow ? '' : 'none';
+
+                if (!shouldShow && radio.checked) {
+                    radio.checked = false;
+                    radio.dispatchEvent(new Event('change', {bubbles: true}));
+                }
+            });
+
+            const firstVisible = methodRows.find(({row}) => row.style.display !== 'none');
+            if (firstVisible && !firstVisible.radio.checked) {
+                firstVisible.radio.checked = true;
+                firstVisible.radio.dispatchEvent(new Event('change', {bubbles: true}));
+            }
+
+            if (addressContainer) {
+                addressContainer.style.display = mode === 'pickup' ? 'none' : '';
+            }
+        };
+
+        const setActiveMode = (wrapper, mode) => {
+            wrapper.querySelectorAll('.mode-btn').forEach((btn) => {
+                btn.classList.toggle('active', btn.getAttribute('data-mode') === mode);
+            });
+        };
+
+        const style = document.createElement('style');
+        style.textContent = `
+            .shipping-mode-toggle .mode-btn {
+                border: 1px solid #2563eb;
+                color: #2563eb;
+                background: #fff;
+                border-radius: 6px;
+                padding: 10px 16px;
+                font-weight: 600;
+                cursor: pointer;
+            }
+
+            .shipping-mode-toggle .mode-btn.active {
+                background: #2563eb;
+                color: #fff;
+            }
+        `;
+        document.head.appendChild(style);
+
+        document.addEventListener('DOMContentLoaded', init);
+        const observer = new MutationObserver(init);
+        observer.observe(document.body, {childList: true, subtree: true});
+    })();
+</script>
