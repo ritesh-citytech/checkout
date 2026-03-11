@@ -1,14 +1,14 @@
 <?php
 /**
- * Checkout shipping mode switcher for Hyvä.
+ * Hyvä checkout shipping mode toggle.
  *
- * Adds two buttons above shipping methods:
+ * Adds a small Alpine-powered toggle above Shipping Methods:
  * - Home Delivery
  * - Pickup
  *
  * Behavior:
- * - Pickup: show only pickup shipping methods and hide shipping address block.
- * - Home Delivery: hide pickup shipping methods and show shipping address block.
+ * - Pickup: show only pickup methods and hide shipping address section.
+ * - Home Delivery: show non-pickup methods and show shipping address section.
  */
 ?>
 <script>
@@ -19,38 +19,26 @@
 
         const PICKUP_KEYWORDS = ['pickup', 'pick up', 'pick-in-store', 'pick in store', 'collect', 'click & collect'];
 
-        const init = () => {
-            const shippingTitle = findShippingTitle();
-            if (!shippingTitle || document.getElementById('shipping-mode-toggle')) {
-                return;
-            }
+        window.shippingModeToggleComponent = () => ({
+            mode: 'home',
 
-            const wrapper = document.createElement('div');
-            wrapper.id = 'shipping-mode-toggle';
-            wrapper.className = 'shipping-mode-toggle flex gap-2 mb-4';
-            wrapper.innerHTML = `
-                <button type="button" class="mode-btn mode-home active" data-mode="home">Home Delivery</button>
-                <button type="button" class="mode-btn mode-pickup" data-mode="pickup">Pickup</button>
-            `;
+            setMode(nextMode) {
+                this.mode = nextMode;
+                applyMode(nextMode);
+            },
 
-            shippingTitle.parentNode.insertBefore(wrapper, shippingTitle.nextSibling);
+            buttonClass(buttonMode) {
+                const isActive = this.mode === buttonMode;
 
-            wrapper.addEventListener('click', (event) => {
-                const btn = event.target.closest('button[data-mode]');
-                if (!btn) {
-                    return;
-                }
-
-                const mode = btn.getAttribute('data-mode');
-                setActiveMode(wrapper, mode);
-                applyMode(mode);
-            });
-
-            applyMode('home');
-        };
+                return isActive
+                    ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                    : 'bg-white border-slate-300 text-slate-700 hover:border-blue-500 hover:text-blue-600';
+            },
+        });
 
         const findShippingTitle = () => {
             const headings = Array.from(document.querySelectorAll('h1, h2, h3, legend, .step-title'));
+
             return headings.find((heading) => /shipping methods?/i.test(heading.textContent || '')) || null;
         };
 
@@ -60,7 +48,7 @@
                 '#shipping',
                 '[data-role="shipping-address-form"]',
                 '.shipping-address',
-                '.checkout-shipping-address'
+                '.checkout-shipping-address',
             ];
 
             for (const selector of candidates) {
@@ -78,16 +66,18 @@
             const radios = document.querySelectorAll('input[type="radio"][name*="shipping"], input[type="radio"][value*="_"]');
 
             radios.forEach((radio) => {
-                const label = document.querySelector(`label[for="${radio.id}"]`);
-                const row = radio.closest('tr, li, .field, .method, .shipping-method-item, .col') || label?.closest('tr, li, .field, .method, .shipping-method-item, .col');
+                const label = radio.id ? document.querySelector(`label[for="${radio.id}"]`) : null;
+                const row = radio.closest('tr, li, .field, .method, .shipping-method-item, .col')
+                    || label?.closest('tr, li, .field, .method, .shipping-method-item, .col');
+
                 if (!row) {
                     return;
                 }
 
-                const text = `${radio.value} ${(label ? label.textContent : '')} ${row.textContent}`.toLowerCase();
-                const isPickup = PICKUP_KEYWORDS.some((keyword) => text.includes(keyword));
+                const methodText = `${radio.value} ${label ? label.textContent : ''} ${row.textContent}`.toLowerCase();
+                const isPickup = PICKUP_KEYWORDS.some((keyword) => methodText.includes(keyword));
 
-                rows.push({radio, row, isPickup});
+                rows.push({ radio, row, isPickup });
             });
 
             return rows;
@@ -97,20 +87,20 @@
             const addressContainer = getAddressContainer();
             const methodRows = getMethodRows();
 
-            methodRows.forEach(({row, radio, isPickup}) => {
+            methodRows.forEach(({ row, radio, isPickup }) => {
                 const shouldShow = mode === 'pickup' ? isPickup : !isPickup;
                 row.style.display = shouldShow ? '' : 'none';
 
                 if (!shouldShow && radio.checked) {
                     radio.checked = false;
-                    radio.dispatchEvent(new Event('change', {bubbles: true}));
+                    radio.dispatchEvent(new Event('change', { bubbles: true }));
                 }
             });
 
-            const firstVisible = methodRows.find(({row}) => row.style.display !== 'none');
+            const firstVisible = methodRows.find(({ row }) => row.style.display !== 'none');
             if (firstVisible && !firstVisible.radio.checked) {
                 firstVisible.radio.checked = true;
-                firstVisible.radio.dispatchEvent(new Event('change', {bubbles: true}));
+                firstVisible.radio.dispatchEvent(new Event('change', { bubbles: true }));
             }
 
             if (addressContainer) {
@@ -118,33 +108,53 @@
             }
         };
 
-        const setActiveMode = (wrapper, mode) => {
-            wrapper.querySelectorAll('.mode-btn').forEach((btn) => {
-                btn.classList.toggle('active', btn.getAttribute('data-mode') === mode);
-            });
+        const buildToggleMarkup = () => {
+            const wrapper = document.createElement('div');
+            wrapper.id = 'shipping-mode-toggle';
+            wrapper.className = 'shipping-mode-toggle mt-3 mb-5';
+            wrapper.innerHTML = `
+                <div class="rounded-xl border border-slate-200 bg-white p-4" x-data="shippingModeToggleComponent()" x-init="setMode('home')">
+                    <p class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Delivery type</p>
+                    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <button type="button"
+                                @click="setMode('home')"
+                                :class="buttonClass('home')"
+                                class="inline-flex items-center justify-center rounded-lg border px-4 py-3 text-sm font-semibold transition">
+                            Home Delivery
+                        </button>
+                        <button type="button"
+                                @click="setMode('pickup')"
+                                :class="buttonClass('pickup')"
+                                class="inline-flex items-center justify-center rounded-lg border px-4 py-3 text-sm font-semibold transition">
+                            Pickup
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            return wrapper;
         };
 
-        const style = document.createElement('style');
-        style.textContent = `
-            .shipping-mode-toggle .mode-btn {
-                border: 1px solid #2563eb;
-                color: #2563eb;
-                background: #fff;
-                border-radius: 6px;
-                padding: 10px 16px;
-                font-weight: 600;
-                cursor: pointer;
+        const init = () => {
+            const shippingTitle = findShippingTitle();
+
+            if (!shippingTitle || document.getElementById('shipping-mode-toggle')) {
+                return;
             }
 
-            .shipping-mode-toggle .mode-btn.active {
-                background: #2563eb;
-                color: #fff;
+            const toggle = buildToggleMarkup();
+            shippingTitle.parentNode.insertBefore(toggle, shippingTitle.nextSibling);
+
+            if (window.Alpine?.initTree) {
+                window.Alpine.initTree(toggle);
+            } else {
+                applyMode('home');
             }
-        `;
-        document.head.appendChild(style);
+        };
 
         document.addEventListener('DOMContentLoaded', init);
+
         const observer = new MutationObserver(init);
-        observer.observe(document.body, {childList: true, subtree: true});
+        observer.observe(document.body, { childList: true, subtree: true });
     })();
 </script>
